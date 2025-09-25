@@ -53,8 +53,7 @@
 
         <div class="actions">
           <button id="save-transaction">Simpan Transaksi</button>
-          <button id="print-invoice-a4">Cetak Invoice A4</button>
-          <button id="print-invoice-thermal">Cetak Invoice Thermal</button>
+          <button id="print-invoice">Cetak Invoice</button>
         </div>
       </div>
     </section>
@@ -77,23 +76,16 @@
   </main>
 
   <!-- Printable invoice area -->
-  <div id="invoice-printable-a4" class="invoice a4">
+  <div id="invoice-printable" class="invoice">
     <div class="invoice-header">
       <img src="assets/logo.jpg" id="invoice-logo">
       <div>
         <h2>Griya HT Lestari</h2>
-        <p>Invoice Penjualan (A4)</p>
+        <p>Invoice Penjualan</p>
       </div>
     </div>
-    <div id="invoice-body-a4"></div>
-    <div id="invoice-footer-a4"></div>
-  </div>
-
-  <div id="invoice-printable-thermal" class="invoice thermal">
-    <h3>Griya HT Lestari</h3>
-    <p>Invoice Penjualan (Thermal)</p>
-    <div id="invoice-body-thermal"></div>
-    <div id="invoice-footer-thermal"></div>
+    <div id="invoice-body"></div>
+    <div id="invoice-footer"></div>
   </div>
 
   <footer class="footer">© Griya HT Lestari</footer>
