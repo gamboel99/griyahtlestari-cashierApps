@@ -1,191 +1,264 @@
-// POS app with localStorage and XLSX export (SheetJS)
-const itemForm = document.getElementById('item-form');
-const cartTableBody = document.querySelector('#cart-table tbody');
-const totalAmountEl = document.getElementById('total-amount');
-const cashierNameInput = document.getElementById('cashier-name');
-const paymentMethod = document.getElementById('payment-method');
-const dpRow = document.getElementById('dp-row');
-const dpPaidInput = document.getElementById('dp-paid');
-const saveBtn = document.getElementById('save-transaction');
-const printBtn = document.getElementById('print-invoice');
-const reportMonth = document.getElementById('report-month');
-const showReportBtn = document.getElementById('show-report');
-const reportOutput = document.getElementById('report-output');
-const downloadMonthXlsxBtn = document.getElementById('download-month-xlsx');
-const clearStorageBtn = document.getElementById('clear-storage');
 
-let cart = [];
+// Simple POS app using localStorage and SheetJS for Excel export
+// Author: generated for Griya HT Lestari
+// Key features: stock management, cart, checkout, localStorage report, Excel export (daily + monthly), printable invoice.
 
-function formatRp(n){ return new Intl.NumberFormat('id-ID').format(n); }
-function recalc(){
-  const total = cart.reduce((s,i)=>s + i.price * i.qty, 0);
-  totalAmountEl.textContent = formatRp(total);
+// Utilities
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function money(x){ return Number(x).toLocaleString('id-ID'); }
+
+// Initial state & storage keys
+const STORAGE_STOCK = 'griya_ht_stock_v1';
+const STORAGE_TX = 'griya_ht_tx_v1';
+const STORAGE_CASHIER = 'griya_ht_cashier_v1';
+
+// Load saved or empty arrays
+let stock = JSON.parse(localStorage.getItem(STORAGE_STOCK) || '[]');
+let transactions = JSON.parse(localStorage.getItem(STORAGE_TX) || '[]');
+let cashier = localStorage.getItem(STORAGE_CASHIER) || '';
+
+$('#cashierName').value = cashier;
+
+// UI helpers
+function saveState(){
+  localStorage.setItem(STORAGE_STOCK, JSON.stringify(stock));
+  localStorage.setItem(STORAGE_TX, JSON.stringify(transactions));
 }
-function renderCart(){
-  cartTableBody.innerHTML = '';
-  cart.forEach((it, idx)=>{
+
+function renderStock(){
+  const tbody = $('#stockTable tbody'); tbody.innerHTML='';
+  const select = $('#selectProduct'); select.innerHTML='';
+  stock.forEach((p,idx)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.name}</td><td>${money(p.price)}</td><td>${p.stock}</td><td><button class="btnRemove" data-idx="${idx}">hapus</button></td>`;
+    tbody.appendChild(tr);
+    const opt = document.createElement('option'); opt.value=idx; opt.text = `${p.name} — ${money(p.price)}`; select.appendChild(opt);
+  });
+}
+
+function renderReport(filterDate=null){
+  const area = $('#reportArea'); area.innerHTML='';
+  const list = filterDate ? transactions.filter(t=>t.date.split('T')[0]===filterDate) : transactions;
+  if(list.length===0){ area.innerHTML='<i>Tidak ada transaksi</i>'; return; }
+  // table
+  const table = document.createElement('table'); table.className='reportTable';
+  table.innerHTML = `<thead><tr><th>No</th><th>ID</th><th>Tgl</th><th>Kasir</th><th>Total</th><th>Metode</th></tr></thead>`;
+  const tbody = document.createElement('tbody');
+  let dailyTotals = {};
+  list.forEach((t,i)=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${it.name}</td><td>${formatRp(it.price)}</td><td>${it.qty}</td><td>${formatRp(it.price*it.qty)}</td><td><button data-idx="${idx}" class="del">x</button></td>`;
-    cartTableBody.appendChild(tr);
+    tr.innerHTML = `<td>${i+1}</td><td>${t.id}</td><td>${new Date(t.date).toLocaleString()}</td><td>${t.cashier||'-'}</td><td>${money(t.total)}</td><td>${t.method}</td>`;
+    tbody.appendChild(tr);
+    const day = t.date.split('T')[0];
+    dailyTotals[day] = (dailyTotals[day]||0) + Number(t.total);
   });
-  recalc();
+  table.appendChild(tbody);
+  area.appendChild(table);
+
+  // daily recap
+  const recap = document.createElement('div'); recap.innerHTML='<h4>Rekap Harian</h4>';
+  Object.keys(dailyTotals).sort().forEach(d=>{
+    const el = document.createElement('div'); el.textContent = `${d} — Rp ${money(dailyTotals[d])}`;
+    recap.appendChild(el);
+  });
+  area.appendChild(recap);
 }
-itemForm.addEventListener('submit', e=>{
+
+// Initial render
+renderStock(); renderReport();
+
+// Product form
+$('#productForm').addEventListener('submit', e=>{
   e.preventDefault();
-  const name = document.getElementById('item-name').value.trim();
-  const price = Number(document.getElementById('item-price').value) || 0;
-  const qty = Number(document.getElementById('item-qty').value) || 1;
-  cart.push({name, price, qty});
-  renderCart();
-  itemForm.reset();
+  const name = $('#p_name').value.trim();
+  const price = Number($('#p_price').value) || 0;
+  const st = Number($('#p_stock').value) || 0;
+  if(!name) return alert('Nama produk kosong');
+  // upsert by name
+  const idx = stock.findIndex(s=>s.name.toLowerCase()===name.toLowerCase());
+  if(idx>=0){ stock[idx].price = price; stock[idx].stock = st; } else {
+    stock.push({ name, price, stock: st });
+  }
+  saveState(); renderStock();
+  $('#p_name').value=''; $('#p_price').value=''; $('#p_stock').value='';
 });
 
-cartTableBody.addEventListener('click', e=>{
-  if(e.target.classList.contains('del')){
+// Remove product
+document.addEventListener('click', e=>{
+  if(e.target.matches('.btnRemove')){
     const idx = Number(e.target.dataset.idx);
-    cart.splice(idx,1);
-    renderCart();
+    if(confirm('Hapus produk?')){
+      stock.splice(idx,1); saveState(); renderStock();
+    }
   }
 });
 
-paymentMethod.addEventListener('change', ()=>{
-  if(paymentMethod.value === 'dp') dpRow.style.display = 'block';
-  else dpRow.style.display = 'none';
+// Cart operations
+let cart = [];
+function renderCart(){
+  const tb = $('#cartTable tbody'); tb.innerHTML='';
+  let subtotal=0;
+  cart.forEach((it,idx)=>{
+    const row = document.createElement('tr');
+    const subtotalItem = it.qty * it.price;
+    subtotal += subtotalItem;
+    row.innerHTML = `<td>${it.name}</td><td>${it.qty}</td><td>${money(it.price)}</td><td>${money(subtotalItem)}</td><td><button data-idx="${idx}" class="removeCart">x</button></td>`;
+    tb.appendChild(row);
+  });
+  $('#subtotal').textContent = money(subtotal);
+  const disc = Number($('#discount').value)||0;
+  const total = Math.round(subtotal * (1 - disc/100));
+  $('#total').textContent = money(total);
+}
+$('#btnAddCart').addEventListener('click', ()=>{
+  const sel = $('#selectProduct').value;
+  if(sel==='') return alert('Pilih produk');
+  const p = stock[Number(sel)];
+  const q = Number($('#qty').value) || 1;
+  if(p.stock < q) return alert('Stok tidak cukup');
+  // add to cart (reduce stock visually only on checkout)
+  const existing = cart.find(c=>c.name===p.name);
+  if(existing){ existing.qty += q; } else cart.push({ name: p.name, qty: q, price: p.price });
+  renderCart();
+});
+document.addEventListener('click', e=>{
+  if(e.target.matches('.removeCart')){
+    const idx = Number(e.target.dataset.idx);
+    cart.splice(idx,1); renderCart();
+  }
 });
 
-function saveTransaction(){
-  if(cart.length === 0) return alert('Keranjang kosong');
-  const cashier = cashierNameInput.value.trim() || 'Unknown';
-  const method = paymentMethod.value;
-  const dpPaid = Number(dpPaidInput.value) || 0;
-  const total = cart.reduce((s,i)=>s + i.price * i.qty, 0);
-  const remaining = method === 'dp' ? Math.max(0, total - dpPaid) : 0;
-  const now = new Date();
+// cashier save
+$('#btnSaveCashier').addEventListener('click', ()=>{
+  cashier = $('#cashierName').value.trim();
+  localStorage.setItem(STORAGE_CASHIER, cashier);
+  alert('Nama kasir disimpan');
+});
+
+// Checkout / Save Transaction
+$('#btnCheckout').addEventListener('click', ()=>{
+  if(cart.length===0) return alert('Keranjang kosong');
+  const payMethod = $('#payMethod').value;
+  const paid = Number($('#paidAmount').value) || 0;
+  const note = $('#note').value || '';
+  const disc = Number($('#discount').value) || 0;
+  // compute totals
+  let subtotal=0; cart.forEach(it=> subtotal += it.qty * it.price);
+  const total = Math.round(subtotal * (1 - disc/100));
+  // handle DP
+  let status='LUNAS';
+  let remaining = 0;
+  if(payMethod === 'dp'){
+    if(paid < total){ status = 'DP'; remaining = total - paid; } else { status='LUNAS'; remaining = paid - total; }
+  } else {
+    if(paid < total){ status = 'KURANG'; remaining = total - paid; } else { status='LUNAS'; remaining = paid - total; }
+  }
+  // generate transaction
   const tx = {
-    id: 'tx_' + now.getTime(),
-    date: now.toISOString(),
-    date_short: now.toISOString().slice(0,10),
-    cashier, method, dpPaid, remaining, total, items: cart.slice()
+    id: 'TX' + Date.now(),
+    date: new Date().toISOString(),
+    cashier: cashier,
+    items: cart.map(c=>({name:c.name, qty:c.qty, price:c.price})),
+    subtotal, discount: disc, total, paid, remaining, status, method: payMethod, note
   };
-  const raw = localStorage.getItem('griya_transactions');
-  const arr = raw ? JSON.parse(raw) : [];
-  arr.push(tx);
-  localStorage.setItem('griya_transactions', JSON.stringify(arr));
-  cart = [];
-  renderCart();
+  // update stocks (deduct)
+  tx.items.forEach(it=>{
+    const idx = stock.findIndex(s=>s.name===it.name);
+    if(idx>=0) stock[idx].stock = Math.max(0, stock[idx].stock - it.qty);
+  });
+  transactions.push(tx); saveState();
+  // clear cart
+  cart = []; renderCart(); renderStock(); renderReport();
+  // show printable invoice (populate)
+  showInvoice(tx);
   alert('Transaksi tersimpan');
+});
+
+function showInvoice(tx){
+  $('#invNumber').textContent = tx.id;
+  $('#invCashier').textContent = tx.cashier || '-';
+  $('#invDate').textContent = new Date(tx.date).toLocaleString();
+  const tbody = document.querySelector('#invTable tbody'); tbody.innerHTML='';
+  tx.items.forEach(it=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${it.name}</td><td>${it.qty}</td><td>${money(it.price)}</td><td>${money(it.qty*it.price)}</td>`;
+    tbody.appendChild(tr);
+  });
+  $('#invSubtotal').textContent = money(tx.subtotal);
+  $('#invDiscount').textContent = tx.discount + '%';
+  $('#invTotal').textContent = money(tx.total);
+  $('#invPaid').textContent = money(tx.paid);
+  $('#invChange').textContent = money(tx.remaining);
+  $('#invMethod').textContent = tx.method;
+  $('#invNote').textContent = tx.note;
+  // open print view in new window
+  const invHtml = document.querySelector('#invoicePrint').outerHTML;
+  const w = window.open('', '_blank');
+  w.document.write('<html><head><title>Invoice</title><link rel="stylesheet" href="style.css"></head><body>' + invHtml + '</body></html>');
+  setTimeout(()=>{ w.print(); }, 700);
 }
 
-saveBtn.addEventListener('click', saveTransaction);
-
-// Print invoice
-printBtn.addEventListener('click', ()=>{
-  if(cart.length === 0) return alert('Keranjang kosong — tambahkan item untuk cetak invoice');
-  const cashier = cashierNameInput.value.trim() || 'Unknown';
-  const method = paymentMethod.value;
-  const dpPaid = Number(dpPaidInput.value) || 0;
-  const total = cart.reduce((s,i)=>s + i.price * i.qty, 0);
-  const remaining = method === 'dp' ? Math.max(0, total - dpPaid) : 0;
-  const invoiceEl = document.getElementById('invoice-printable');
-  const body = document.getElementById('invoice-body');
-  const footer = document.getElementById('invoice-footer');
-  const d = new Date();
-  let html = `<p>Tanggal: ${d.toLocaleString()}</p>`;
-  html += `<p>Kasir: ${cashier}</p>`;
-  html += `<p>Metode: ${method.toUpperCase()} ${method==='dp' ? '(DP dibayar: ' + formatRp(dpPaid) + ', Sisa: ' + formatRp(remaining) + ')' : ''}</p>`;
-  html += '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Nama</th><th>Harga</th><th>Qty</th><th>Subtotal</th></tr></thead><tbody>';
-  cart.forEach(it=>{
-    html += `<tr><td>${it.name}</td><td style="text-align:right">${formatRp(it.price)}</td><td style="text-align:right">${it.qty}</td><td style="text-align:right">${formatRp(it.price*it.qty)}</td></tr>`;
-  });
-  html += `</tbody></table>`;
-  html += `<h3>Total: ${formatRp(total)}</h3>`;
-  body.innerHTML = html;
-  footer.innerHTML = '<p>Terima kasih atas pembelian Anda!</p>';
-  invoiceEl.style.display = 'block';
-  setTimeout(()=> window.print(), 500);
-  window.onafterprint = () => { invoiceEl.style.display = 'none'; };
+// Filtering
+$('#btnFilter').addEventListener('click', ()=>{
+  const d = $('#filterDate').value;
+  if(!d) return alert('Pilih tanggal');
+  renderReport(d);
 });
+$('#btnClearFilter').addEventListener('click', ()=>{ renderReport(); $('#filterDate').value=''; });
 
-// Report monthly (on screen)
-showReportBtn.addEventListener('click', ()=>{
-  const val = reportMonth.value;
-  if(!val) return alert('Pilih bulan (format YYYY-MM)');
-  const raw = localStorage.getItem('griya_transactions');
-  const arr = raw ? JSON.parse(raw) : [];
-  const filtered = arr.filter(tx => tx.date.slice(0,7) === val);
-  if(filtered.length === 0) return reportOutput.innerHTML = '<p>Tidak ada transaksi untuk bulan ini.</p>';
-  // build table grouped by day
-  const days = {};
-  filtered.forEach(tx=>{
-    const day = tx.date_short;
-    if(!days[day]) days[day] = [];
-    days[day].push(tx);
-  });
-  let html = '';
-  Object.keys(days).sort().forEach(day=>{
-    html += `<h4>${day}</h4>`;
-    html += '<table><thead><tr><th>ID</th><th>Kasir</th><th>Metode</th><th>DP</th><th>Sisa</th><th>Total</th></tr></thead><tbody>';
-    let daySum = 0;
-    days[day].forEach(tx=>{
-      html += `<tr><td>${tx.id}</td><td>${tx.cashier}</td><td>${tx.method}</td><td style="text-align:right">${formatRp(tx.dpPaid)}</td><td style="text-align:right">${formatRp(tx.remaining)}</td><td style="text-align:right">${formatRp(tx.total)}</td></tr>`;
-      daySum += tx.total;
+// Export to Excel (SheetJS)
+// Build worksheet from transactions; daily workbook: all tx for date; monthly workbook: sheets per day
+function exportDaily(dateStr){
+  const list = transactions.filter(t=>t.date.split('T')[0]===dateStr);
+  if(list.length===0) return alert('Tidak ada transaksi di tanggal ini');
+  const ws_data = [['ID','Tanggal','Kasir','Item','Qty','Harga','Subtotal','Diskon %','Total','Paid','Remaining','Status','Method','Note']];
+  list.forEach(t=>{
+    t.items.forEach(it=>{
+      ws_data.push([t.id, t.date, t.cashier, it.name, it.qty, it.price, it.qty*it.price, t.discount, t.total, t.paid, t.remaining, t.status, t.method, t.note]);
     });
-    html += `</tbody></table><p>Rekap Total ${day}: <strong>${formatRp(daySum)}</strong></p>`;
   });
-  reportOutput.innerHTML = html;
-});
-
-// Download monthly workbook (.xlsx) with SheetJS
-downloadMonthXlsxBtn.addEventListener('click', ()=>{
-  const val = reportMonth.value;
-  if(!val) return alert('Pilih bulan terlebih dahulu (format YYYY-MM)');
-  const raw = localStorage.getItem('griya_transactions');
-  const arr = raw ? JSON.parse(raw) : [];
-  const filtered = arr.filter(tx => tx.date.slice(0,7) === val);
-  if(filtered.length === 0) return alert('Tidak ada transaksi untuk bulan ini.');
-
-  // group by day
-  const days = {};
-  filtered.forEach(tx=>{
-    const day = tx.date_short;
-    if(!days[day]) days[day] = [];
-    days[day].push(tx);
-  });
-
   const wb = XLSX.utils.book_new();
-  Object.keys(days).sort().forEach(day=>{
-    const rows = [];
-    // header
-    rows.push(['ID','Date','Kasir','Metode','DP Paid','Remaining','Total','ItemName','Price','Qty','Subtotal']);
-    let daySum = 0;
-    let txCount = 0;
-    days[day].forEach(tx=>{
-      tx.items.forEach(it=>{
-        rows.push([tx.id, tx.date, tx.cashier, tx.method, tx.dpPaid, tx.remaining, tx.total, it.name, it.price, it.qty, it.price*it.qty]);
-      });
-      daySum += tx.total;
-      txCount += 1;
-    });
-    // add empty row and rekap
-    rows.push([]);
-    rows.push(['TOTAL TRANSAKSI', txCount, 'TOTAL OMZET', daySum]);
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, day);
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  XLSX.utils.book_append_sheet(wb, ws, dateStr);
+  XLSX.writeFile(wb, `griyaht_transaksi_${dateStr}.xlsx`);
+}
+
+function exportMonth(month){ // month 'YYYY-MM'
+  // group by date
+  const grouped = {};
+  transactions.forEach(t=>{
+    const d = t.date.split('T')[0];
+    if(d.startsWith(month)) grouped[d] = grouped[d] || [];
+    if(d.startsWith(month)) grouped[d].push(t);
   });
-
-  const filename = `griya-laporan-${val}.xlsx`;
+  if(Object.keys(grouped).length===0) return alert('Tidak ada transaksi di bulan ini');
+  const wb = XLSX.utils.book_new();
+  Object.keys(grouped).sort().forEach(d=>{
+    const ws_data = [['ID','Tanggal','Kasir','Item','Qty','Harga','Subtotal','Diskon %','Total','Paid','Remaining','Status','Method','Note']];
+    grouped[d].forEach(t=>{
+      t.items.forEach(it=> ws_data.push([t.id, t.date, t.cashier, it.name, it.qty, it.price, it.qty*it.price, t.discount, t.total, t.paid, t.remaining, t.status, t.method, t.note]));
+    });
+    // add daily recap bottom row
+    const totals = grouped[d].reduce((s,x)=> s + Number(x.total), 0);
+    ws_data.push([]);
+    ws_data.push(['','','','Total hari ini','', '', '', '', totals]);
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    XLSX.utils.book_append_sheet(wb, ws, d);
+  });
+  const filename = `griyaht_transaksi_${month}.xlsx`;
   XLSX.writeFile(wb, filename);
+}
+
+// Buttons export handlers (today and current month)
+$('#btnExportToday').addEventListener('click', ()=>{
+  const today = new Date().toISOString().split('T')[0];
+  exportDaily(today);
+});
+$('#btnExportMonth').addEventListener('click', ()=>{
+  const now = new Date(); const month = now.toISOString().slice(0,7); exportMonth(month);
 });
 
-// Clear storage
-clearStorageBtn.addEventListener('click', ()=>{
-  if(confirm('Hapus semua transaksi dari localStorage?')) {
-    localStorage.removeItem('griya_transactions');
-    alert('Semua transaksi dihapus.');
-    reportOutput.innerHTML = '';
-  }
-});
-
-(function init(){
-  renderCart();
-})();
+// initial render report
+renderReport();

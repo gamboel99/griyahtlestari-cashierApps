@@ -3,95 +3,133 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Griya HT Lestari — Kasir</title>
+  <title>Griya HT Lestari — Aplikasi Kasir</title>
   <link rel="stylesheet" href="style.css">
+  <!-- SheetJS (for Excel exports) - CDN; required online when running in browser -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <img src="assets/logo.jpg" alt="Griya HT Lestari" id="brand-logo">
-      <div class="brand-text">
+      <img src="assets/logo.jpg" alt="Griya HT Lestari" onerror="this.style.display='none'">
+      <div>
         <h1>Griya HT Lestari</h1>
-        <p>Aplikasi Kasir Sederhana</p>
+        <small>Aplikasi Kasir (HTML + LocalStorage)</small>
       </div>
+    </div>
+    <div class="user-area">
+      <label>Nama Kasir: <input id="cashierName" placeholder="Nama kasir..."></label>
+      <button id="btnSaveCashier">Simpan</button>
     </div>
   </header>
 
   <main class="container">
     <section class="left">
-      <h2>Tambah Item</h2>
-      <form id="item-form">
-        <input type="text" id="item-name" placeholder="Nama barang" required>
-        <input type="number" id="item-price" placeholder="Harga (Rp)" min="0" required>
-        <input type="number" id="item-qty" placeholder="Jumlah" min="1" value="1" required>
-        <button type="submit">Tambah ke Keranjang</button>
+      <h2>Stok & Produk</h2>
+      <form id="productForm" class="card">
+        <input id="p_name" placeholder="Nama produk" required>
+        <input id="p_price" type="number" placeholder="Harga (Rp)" required>
+        <input id="p_stock" type="number" placeholder="Stok awal" required>
+        <button type="submit">Tambah / Update Produk</button>
       </form>
 
-      <h3>Keranjang</h3>
-      <table id="cart-table">
-        <thead><tr><th>Nama</th><th>Harga</th><th>Qty</th><th>Subtotal</th><th>Hapus</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <div class="card">
+        <h3>Daftar Produk</h3>
+        <table id="stockTable">
+          <thead><tr><th>Nama</th><th>Harga</th><th>Stok</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
 
-      <div class="summary">
-        <label>Nama Kasir: <input type="text" id="cashier-name" placeholder="Nama kasir" required></label>
+    <section class="middle">
+      <h2>Keranjang</h2>
+      <div class="card">
+        <label>Produk: <select id="selectProduct"></select></label>
+        <label>Qty: <input id="qty" type="number" value="1" min="1"></label>
+        <button id="btnAddCart">Tambah ke Keranjang</button>
+      </div>
+
+      <div class="card">
+        <h3>Keranjang</h3>
+        <table id="cartTable">
+          <thead><tr><th>Nama</th><th>Qty</th><th>Harga</th><th>Subtotal</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="totals">
+          <div>Subtotal: <span id="subtotal">0</span></div>
+          <div>Diskon: <input id="discount" type="number" value="0"> %</div>
+          <div>Total: <strong id="total">0</strong></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Bayar</h3>
         <label>Metode Pembayaran:
-          <select id="payment-method">
-            <option value="cash">Cash</option>
+          <select id="payMethod">
+            <option value="cash">CASH</option>
+            <option value="dp">DP (Down Payment)</option>
             <option value="transfer">Transfer</option>
             <option value="qris">QRIS</option>
-            <option value="dp">DP (Uang Muka)</option>
+            <option value="cas">CAS</option>
           </select>
         </label>
-        <div id="dp-row" style="display:none;">
-          <input type="number" id="dp-paid" placeholder="Jumlah DP dibayar (Rp)" min="0" value="0">
-        </div>
-
-        <div class="totals">
-          <div>Total: <span id="total-amount">0</span></div>
-        </div>
-
-        <div class="actions">
-          <button id="save-transaction">Simpan Transaksi</button>
-          <button id="print-invoice">Cetak Invoice</button>
-        </div>
+        <label>Bayar (Rp): <input id="paidAmount" type="number" value="0"></label>
+        <label>Keterangan: <input id="note" placeholder="opsional"></label>
+        <button id="btnCheckout">Simpan Transaksi & Cetak Invoice</button>
+        <button id="btnExportToday">Download Excel Hari Ini</button>
+        <button id="btnExportMonth">Download Workbook Bulan Ini</button>
       </div>
     </section>
 
     <section class="right">
-      <h2>Laporan & Arsip</h2>
-      <div>
-        <label>Pilih Bulan: <input type="month" id="report-month"></label>
-        <button id="show-report">Tampilkan Laporan Bulanan</button>
+      <h2>Laporan & Kontrol</h2>
+      <div class="card">
+        <label>Filter Tanggal: <input id="filterDate" type="date"></label>
+        <button id="btnFilter">Filter</button>
+        <button id="btnClearFilter">Reset</button>
       </div>
 
-      <div id="report-output"></div>
+      <div class="card">
+        <h3>Rekap Transaksi</h3>
+        <div id="reportArea"></div>
+      </div>
 
-      <h3>Download</h3>
-      <div class="download-actions">
-        <button id="download-month-xlsx">Download Workbook Bulanan (.xlsx)</button>
-        <button id="clear-storage">Hapus Semua Transaksi</button>
+      <div class="card small">
+        <h3>Instruksi</h3>
+        <ul>
+          <li>Semua data disimpan di browser (localStorage).</li>
+          <li>Gunakan tombol export untuk unduh Excel.</li>
+          <li>Untuk thermal printer: integrasi server/driver diperlukan nanti.</li>
+        </ul>
       </div>
     </section>
   </main>
 
-  <!-- Printable invoice area -->
-  <div id="invoice-printable" class="invoice">
-    <div class="invoice-header">
-      <img src="assets/logo.jpg" id="invoice-logo">
-      <div>
-        <h2>Griya HT Lestari</h2>
-        <p>Invoice Penjualan</p>
-      </div>
+  <!-- Hidden printable invoice -->
+  <div id="invoicePrint" class="invoice" style="display:none;">
+    <div class="inv-header">
+      <img src="assets/logo.jpg" alt="logo" onerror="this.style.display='none'">
+      <h2>Griya HT Lestari</h2>
+      <div class="meta">Invoice: <span id="invNumber"></span> | Kasir: <span id="invCashier"></span></div>
+      <div class="meta">Tanggal: <span id="invDate"></span></div>
     </div>
-    <div id="invoice-body"></div>
-    <div id="invoice-footer"></div>
+    <table id="invTable">
+      <thead><tr><th>Nama</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="inv-totals">
+      <div>Subtotal: <span id="invSubtotal"></span></div>
+      <div>Diskon: <span id="invDiscount"></span></div>
+      <div>Total: <strong id="invTotal"></strong></div>
+      <div>Bayar: <span id="invPaid"></span></div>
+      <div>Kembalian / Sisa: <span id="invChange"></span></div>
+      <div>Metode: <span id="invMethod"></span></div>
+      <div>Catatan: <span id="invNote"></span></div>
+    </div>
+    <div class="inv-footer">Terima kasih telah berbelanja di Griya HT Lestari!</div>
   </div>
 
-  <footer class="footer">© Griya HT Lestari</footer>
-
-  <!-- SheetJS (XLSX) from CDN -->
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

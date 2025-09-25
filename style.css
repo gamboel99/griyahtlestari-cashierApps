@@ -1,22 +1,27 @@
-*{box-sizing:border-box;font-family:Inter,Arial,Helvetica,sans-serif}
-body{margin:0;background:#f6f8fa;color:#111}
-.topbar{background:#0b63c6;color:#fff;padding:12px}
-.brand{display:flex;align-items:center;gap:12px}
-#brand-logo{width:56px;height:56px;object-fit:cover;border-radius:8px;background:#fff;padding:4px}
-.container{display:flex;gap:20px;padding:20px}
-.left{flex:1;background:#fff;padding:16px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05)}
-.right{width:360px;background:#fff;padding:16px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05)}
-input,select,button{font-size:14px;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #ddd}
-button{cursor:pointer;background:#0b63c6;color:#fff;border:none}
-table{width:100%;border-collapse:collapse;margin-top:8px}
-th,td{padding:6px;border-bottom:1px solid #eee;text-align:left}
-.summary{margin-top:12px}
-.totals{font-weight:700;margin:8px 0}
-.invoice{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:760px;background:#fff;padding:24px;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.2)}
-.invoice-header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
-#invoice-logo{width:80px;height:80px;object-fit:contain}
+
+/* Simple, clean styling for the POS app */
+:root{ --blue:#0b6fb0; --muted:#666; --card:#fff; --bg:#f3f6f8 }
+body{ font-family:Inter, Arial, sans-serif; margin:0; background:var(--bg); color:#222 }
+.topbar{ background:linear-gradient(90deg,#074a6e,#0b6fb0); color:white; padding:12px 18px; display:flex; justify-content:space-between; align-items:center }
+.topbar .brand{ display:flex; gap:12px; align-items:center }
+.topbar img{ height:52px; border-radius:6px; object-fit:cover }
+.topbar h1{ margin:0; font-size:18px }
+.container{ display:grid; grid-template-columns: 1fr 1fr 380px; gap:16px; padding:18px }
+.card{ background:var(--card); padding:12px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.06) }
+.left h2, .middle h2, .right h2{ margin-top:0 }
+input, select, button{ padding:8px; margin:6px 0; font-size:14px }
+button{ background:var(--blue); color:white; border:none; border-radius:4px; cursor:pointer }
+button.secondary{ background:#666 }
+table{ width:100%; border-collapse:collapse }
+table th, table td{ padding:6px; border-bottom:1px solid #eee; text-align:left; font-size:13px }
+.totals{ display:flex; flex-direction:column; gap:6px; margin-top:8px }
+.small{ max-width:360px }
+.invoice{ width:700px; margin:20px auto; background:#fff; padding:18px; border-radius:6px }
+.inv-header{ text-align:center }
+.inv-header img{ height:48px }
+.inv-totals{ margin-top:12px }
+.meta{ font-size:12px; color:var(--muted) }
 @media print{
-  body *{visibility:hidden}
-  .invoice, .invoice *{visibility:visible}
-  .invoice{position:static;transform:none;width:100%;box-shadow:none}
+  body *:not(.invoice){ display:none !important }
+  .invoice{ display:block !important; width:100%; }
 }
