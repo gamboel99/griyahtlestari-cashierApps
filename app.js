@@ -177,6 +177,7 @@ $('#btnCheckout').addEventListener('click', ()=>{
 });
 
 function showInvoice(tx){
+  // isi invoice ke dalam template
   $('#invNumber').textContent = tx.id;
   $('#invCashier').textContent = tx.cashier || '-';
   $('#invDate').textContent = new Date(tx.date).toLocaleString();
@@ -191,13 +192,42 @@ function showInvoice(tx){
   $('#invTotal').textContent = money(tx.total);
   $('#invPaid').textContent = money(tx.paid);
   $('#invChange').textContent = money(tx.remaining);
-  $('#invMethod').textContent = tx.method;
+  $('#invMethod').textContent = tx.method.toUpperCase();
   $('#invNote').textContent = tx.note;
-  // open print view in new window
-  const invHtml = document.querySelector('#invoicePrint').outerHTML;
+
+  // ambil isi invoice setelah terisi
+  const invoiceContent = document.getElementById("invoicePrint").innerHTML;
+
+  // buat jendela print baru
   const w = window.open('', '_blank');
-  w.document.write('<html><head><title>Invoice</title><link rel="stylesheet" href="style.css"></head><body>' + invHtml + '</body></html>');
-  setTimeout(()=>{ w.print(); }, 700);
+  w.document.write(`
+    <html>
+      <head>
+        <title>Invoice - Griya HT Lestari</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; font-size: 14px; }
+          h2, h3 { margin: 0; text-align: center; }
+          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          table, th, td { border: 1px solid black; }
+          th, td { padding: 6px; text-align: left; }
+          .footer { margin-top: 20px; text-align: right; font-size: 12px; }
+          @media print {
+            body { margin: 0; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        ${invoiceContent}
+      </body>
+    </html>
+  `);
+  w.document.close();
+  w.onload = function(){
+    w.print();
+    w.close();
+  };
 }
 
 // Filtering
