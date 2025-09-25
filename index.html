@@ -1,97 +1,83 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Griya HT Lestari — Kasir</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kasir Griya HT Lestari</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background:#f9f9f9;}
+    h1 { color:#004aad; }
+    button { margin:5px; padding:8px 14px; cursor:pointer; }
+
+    .invoice { background:#fff; padding:20px; margin-top:20px; border:1px solid #ccc; }
+    .invoice h2 { margin:0; font-size:18px; }
+    .invoice p { margin:4px 0; }
+
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { border:1px solid #000; padding:4px; text-align:left; }
+    th { background:#eee; }
+
+    @media print {
+      body { margin:0; padding:0; }
+      .invoice { page-break-inside: avoid; }
+      .invoice.a4 { width: 100%; padding:20px; font-size:14px; }
+      .invoice.thermal { width:80mm; padding:5px; font-size:12px; line-height:1.4; }
+      @page { margin:10mm; }
+    }
+  </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <img src="assets/logo.jpg" alt="Griya HT Lestari" id="brand-logo">
-      <div class="brand-text">
-        <h1>Griya HT Lestari</h1>
-        <p>Aplikasi Kasir Sederhana</p>
-      </div>
-    </div>
-  </header>
+  <h1>Kasir Griya HT Lestari</h1>
+  <label>Nama Kasir: <input id="kasir" value="Eko"></label><br>
+  <label>Metode:
+    <select id="metode">
+      <option>CASH</option>
+      <option>TRANSFER</option>
+      <option>QRIS</option>
+    </select>
+  </label><br>
+  <button onclick="addItem()">Tambah Item Dummy</button>
+  <button onclick="printInvoice('a4')">Cetak A4</button>
+  <button onclick="printInvoice('thermal')">Cetak Struk</button>
 
-  <main class="container">
-    <section class="left">
-      <h2>Tambah Item</h2>
-      <form id="item-form">
-        <input type="text" id="item-name" placeholder="Nama barang" required>
-        <input type="number" id="item-price" placeholder="Harga (Rp)" min="0" required>
-        <input type="number" id="item-qty" placeholder="Jumlah" min="1" value="1" required>
-        <button type="submit">Tambah ke Keranjang</button>
-      </form>
-
-      <h3>Keranjang</h3>
-      <table id="cart-table">
-        <thead><tr><th>Nama</th><th>Harga</th><th>Qty</th><th>Subtotal</th><th>Hapus</th></tr></thead>
-        <tbody></tbody>
-      </table>
-
-      <div class="summary">
-        <label>Nama Kasir: <input type="text" id="cashier-name" placeholder="Nama kasir" required></label>
-        <label>Metode Pembayaran:
-          <select id="payment-method">
-            <option value="cash">Cash</option>
-            <option value="transfer">Transfer</option>
-            <option value="qris">QRIS</option>
-            <option value="dp">DP (Uang Muka)</option>
-          </select>
-        </label>
-        <div id="dp-row" style="display:none;">
-          <input type="number" id="dp-paid" placeholder="Jumlah DP dibayar (Rp)" min="0" value="0">
-        </div>
-
-        <div class="totals">
-          <div>Total: <span id="total-amount">0</span></div>
-        </div>
-
-        <div class="actions">
-          <button id="save-transaction">Simpan Transaksi</button>
-          <button id="print-invoice">Cetak Invoice</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="right">
-      <h2>Laporan & Arsip</h2>
-      <div>
-        <label>Pilih Bulan: <input type="month" id="report-month"></label>
-        <button id="show-report">Tampilkan Laporan Bulanan</button>
-      </div>
-
-      <div id="report-output"></div>
-
-      <h3>Download</h3>
-      <div class="download-actions">
-        <button id="download-month-xlsx">Download Workbook Bulanan (.xlsx)</button>
-        <button id="clear-storage">Hapus Semua Transaksi</button>
-      </div>
-    </section>
-  </main>
-
-  <!-- Printable invoice area -->
-  <div id="invoice-printable" class="invoice">
-    <div class="invoice-header">
-      <img src="assets/logo.jpg" id="invoice-logo">
-      <div>
-        <h2>Griya HT Lestari</h2>
-        <p>Invoice Penjualan</p>
-      </div>
-    </div>
-    <div id="invoice-body"></div>
-    <div id="invoice-footer"></div>
+  <div id="invoice" class="invoice a4">
+    <h2>Griya HT Lestari</h2>
+    <p>Tanggal: <span id="tgl"></span></p>
+    <p>Kasir: <span id="kasirLabel"></span></p>
+    <p>Metode: <span id="metodeLabel"></span></p>
+    <table id="items">
+      <thead><tr><th>Nama</th><th>Harga</th><th>Qty</th><th>Subtotal</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <h3>Total: <span id="total"></span></h3>
   </div>
 
-  <footer class="footer">© Griya HT Lestari</footer>
-
-  <!-- SheetJS (XLSX) from CDN -->
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <script src="app.js"></script>
+<script>
+let items = [];
+function addItem() {
+  items.push({nama:'Produk A', harga:50000, qty:1});
+  renderInvoice();
+}
+function renderInvoice(){
+  document.getElementById('tgl').innerText = new Date().toLocaleString();
+  document.getElementById('kasirLabel').innerText = document.getElementById('kasir').value;
+  document.getElementById('metodeLabel').innerText = document.getElementById('metode').value;
+  let tbody = document.querySelector('#items tbody');
+  tbody.innerHTML = '';
+  let total = 0;
+  items.forEach(it=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${it.nama}</td><td>${it.harga.toLocaleString()}</td><td>${it.qty}</td><td>${(it.harga*it.qty).toLocaleString()}</td>`;
+    tbody.appendChild(tr);
+    total += it.harga*it.qty;
+  });
+  document.getElementById('total').innerText = total.toLocaleString();
+}
+function printInvoice(mode){
+  const invoice=document.getElementById('invoice');
+  invoice.className = "invoice "+mode;
+  window.print();
+}
+</script>
 </body>
 </html>
