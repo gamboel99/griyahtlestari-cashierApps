@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Griya HT Lestari — Kasir</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/logo.jpg" alt="Griya HT Lestari" id="brand-logo">
+      <div class="brand-text">
+        <h1>Griya HT Lestari</h1>
+        <p>Aplikasi Kasir Sederhana</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="left">
+      <h2>Tambah Item</h2>
+      <form id="item-form">
+        <input type="text" id="item-name" placeholder="Nama barang" required>
+        <input type="number" id="item-price" placeholder="Harga (Rp)" min="0" required>
+        <input type="number" id="item-qty" placeholder="Jumlah" min="1" value="1" required>
+        <button type="submit">Tambah ke Keranjang</button>
+      </form>
+
+      <h3>Keranjang</h3>
+      <table id="cart-table">
+        <thead><tr><th>Nama</th><th>Harga</th><th>Qty</th><th>Subtotal</th><th>Hapus</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="summary">
+        <label>Nama Kasir: <input type="text" id="cashier-name" placeholder="Nama kasir" required></label>
+        <label>Metode Pembayaran:
+          <select id="payment-method">
+            <option value="cash">Cash</option>
+            <option value="transfer">Transfer</option>
+            <option value="qris">QRIS</option>
+            <option value="dp">DP (Uang Muka)</option>
+          </select>
+        </label>
+        <div id="dp-row" style="display:none;">
+          <input type="number" id="dp-paid" placeholder="Jumlah DP dibayar (Rp)" min="0" value="0">
+        </div>
+
+        <div class="totals">
+          <div>Total: <span id="total-amount">0</span></div>
+        </div>
+
+        <div class="actions">
+          <button id="save-transaction">Simpan Transaksi</button>
+          <button id="print-invoice">Cetak Invoice</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="right">
+      <h2>Laporan & Arsip</h2>
+      <div>
+        <label>Pilih Bulan: <input type="month" id="report-month"></label>
+        <button id="show-report">Tampilkan Laporan Bulanan</button>
+      </div>
+
+      <div id="report-output"></div>
+
+      <h3>Download</h3>
+      <div class="download-actions">
+        <button id="download-month-xlsx">Download Workbook Bulanan (.xlsx)</button>
+        <button id="clear-storage">Hapus Semua Transaksi</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Printable invoice area -->
+  <div id="invoice-printable" class="invoice">
+    <div class="invoice-header">
+      <img src="assets/logo.jpg" id="invoice-logo">
+      <div>
+        <h2>Griya HT Lestari</h2>
+        <p>Invoice Penjualan</p>
+      </div>
+    </div>
+    <div id="invoice-body"></div>
+    <div id="invoice-footer"></div>
+  </div>
+
+  <footer class="footer">© Griya HT Lestari</footer>
+
+  <!-- SheetJS (XLSX) from CDN -->
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
